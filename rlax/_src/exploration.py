@@ -22,7 +22,7 @@ We also support the computation of intrinsic rewards a la Agent57 / NGU style
 exploration (see docstring), which is to be used as part of recurrent cell to
 process states and a growing memory of previously visited states.
 """
-from typing import Optional
+from typing import Optional, Union
 
 import chex
 import jax
@@ -148,7 +148,7 @@ def add_dirichlet_noise(
 class IntrinsicRewardState():
   memory: jnp.ndarray
   next_memory_index: Scalar = 0
-  distance_sum: Scalar = 0
+  distance_sum: Union[Array, Scalar] = 0
   distance_count: Scalar = 0
 
 
@@ -258,7 +258,7 @@ def episodic_memory_intrinsic_rewards(
 
   # Compute the similarity for the embedding x:
   # s = √(Σ_{xₖ ∈ Nₖ} K(xₖ, x)) + c
-  similarity = (jnp.sqrt(jnp.sum(kernel_output, axis=-1)) + constant)
+  similarity = jnp.sqrt(jnp.sum(kernel_output, axis=-1)) + constant
 
   # Compute the intrinsic reward:
   # r = 1 / s.

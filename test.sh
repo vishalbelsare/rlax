@@ -25,7 +25,7 @@ python --version
 
 # Install dependencies.
 pip install --upgrade pip setuptools wheel
-pip install flake8 pytest-xdist pytype pylint pylint-exit
+pip install flake8 pytest-xdist pylint pylint-exit
 pip install -r requirements/requirements.txt
 pip install -r requirements/requirements-test.txt
 
@@ -33,12 +33,18 @@ pip install -r requirements/requirements-test.txt
 flake8 `find rlax -name '*.py' | xargs` --count --select=E9,F63,F7,F82,E225,E251 --show-source --statistics
 
 # Lint with pylint.
+# Download Google OSS config.
+wget -nd -v -t 3 -O .pylintrc https://google.github.io/styleguide/pylintrc
+# Append specific config lines.
+echo "disable=unnecessary-lambda-assignment,no-value-for-parameter,use-dict-literal" >> .pylintrc
 # Fail on errors, warning, conventions and refactoring messages.
 PYLINT_ARGS="-efail -wfail -cfail -rfail"
 # Lint modules and tests separately.
 pylint --rcfile=.pylintrc `find rlax -name '*.py' | grep -v 'test.py' | xargs` || pylint-exit $PYLINT_ARGS $?
 # Disable `protected-access` warnings for tests.
 pylint --rcfile=.pylintrc `find rlax -name '*_test.py' | xargs` -d W0212 || pylint-exit $PYLINT_ARGS $?
+# Cleanup.
+rm .pylintrc
 
 # Build the package.
 python setup.py sdist
@@ -46,7 +52,13 @@ pip wheel --verbose --no-deps --no-clean dist/rlax*.tar.gz
 pip install rlax*.whl
 
 # Check types with pytype.
-pytype `find rlax/_src/ -name "*py" | xargs` -k
+# Note: pytype does not support 3.11 as of 25.06.23
+# See https://github.com/google/pytype/issues/1308
+if [ `python -c 'import sys; print(sys.version_info.minor)'` -lt 11 ];
+then
+  pip install pytype
+  pytype `find rlax/_src/ -name "*py" | xargs` -k
+fi;
 
 # Run tests using pytest.
 # Change directory to avoid importing the package from repo root.

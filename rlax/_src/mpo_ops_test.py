@@ -61,7 +61,7 @@ _MAX_ACTION_ERROR = 0.2
 _MAX_KL_ERROR = 1e-6
 
 _DIAGONAL_GAUSSIAN_DIST = distributions.gaussian_diagonal()
-_PROJECTION_OPERATOR = functools.partial(jnp.clip, a_min=1e-10)
+_PROJECTION_OPERATOR = functools.partial(jnp.clip, min=1e-10)
 
 
 def _hk_mock_policy_params(s_tm1):
@@ -89,7 +89,7 @@ def _init_params(key):
       online=online_params,
       target=online_params,
       mpo=dict(
-          temperature=_INIT_TEMPERATURE,
+          temperature=jnp.array(_INIT_TEMPERATURE),
           alpha_mean=_INIT_ALPHA_MEAN,
           alpha_covariance=_INIT_ALPHA_COVARIANCE),
   )
@@ -369,7 +369,7 @@ class MPOTest(parameterized.TestCase):
     target = jnp.array([[3]], jnp.float32)
     if sample_dimension:
       target = jnp.expand_dims(target, axis=0)
-    temperature = 0.1
+    temperature = jnp.array(0.1)
     # pylint: disable=g-long-lambda
     def mean_weights_fn(target_, temperature_):
       temperature_constraint = mpo_ops.LagrangePenalty(
@@ -468,8 +468,8 @@ class MPOTest(parameterized.TestCase):
     """Test that calculation is correct if restarting weight is set to 0."""
     temperature_loss, _, _ = mpo_ops.vmpo_compute_weights_and_temperature_loss(
         advantages, restarting_weights, np.ones_like(restarting_weights),
-        mpo_ops.LagrangePenalty(1.0, _EPSILON_BOUND),
-        functools.partial(np.clip, a_min=1e-8, a_max=None), 1.0)
+        mpo_ops.LagrangePenalty(jnp.array(1.0), _EPSILON_BOUND),
+        functools.partial(np.clip, min=1e-8, max=None), 1.0)
     self.assertAlmostEqual(
         temperature_loss, expected_temperature_loss, places=4)
 
@@ -516,8 +516,8 @@ class MPOTest(parameterized.TestCase):
     """Test that importance weights have the correct effect."""
     temperature_loss, _, _ = mpo_ops.vmpo_compute_weights_and_temperature_loss(
         advantages, np.ones_like(importance_weights), importance_weights,
-        mpo_ops.LagrangePenalty(1.0, _EPSILON_BOUND),
-        functools.partial(np.clip, a_min=1e-8, a_max=None), 1.0)
+        mpo_ops.LagrangePenalty(jnp.array(1.0), _EPSILON_BOUND),
+        functools.partial(np.clip, min=1e-8, max=None), 1.0)
     self.assertAlmostEqual(
         temperature_loss, expected_temperature_loss, places=4)
 

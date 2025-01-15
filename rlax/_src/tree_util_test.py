@@ -30,7 +30,7 @@ class TreeUtilTest(absltest.TestCase):
     rng_key = jax.random.PRNGKey(42)
     tree_like = (1, (2, 3), {'a': 4})
     _, tree_keys = tree_util.tree_split_key(rng_key, tree_like)
-    self.assertLen(jax.tree_leaves(tree_keys), 4)
+    self.assertLen(jax.tree.leaves(tree_keys), 4)
 
   def test_tree_map_zipped(self):
     nests = [
@@ -55,14 +55,14 @@ class TreeUtilTest(absltest.TestCase):
   def test_select_true(self):
     on_true = ((jnp.zeros(3,),), jnp.zeros(4,))
     on_false = ((jnp.ones(3,),), jnp.ones(4,))
-    output = tree_util.tree_select(True, on_true, on_false)
-    chex.assert_tree_all_close(output, on_true)
+    output = tree_util.tree_select(jnp.array(True), on_true, on_false)
+    chex.assert_trees_all_close(output, on_true)
 
   def test_select_false(self):
     on_true = ((jnp.zeros(3,),), jnp.zeros(4,))
     on_false = ((jnp.ones(3,),), jnp.ones(4,))
-    output = tree_util.tree_select(False, on_true, on_false)
-    chex.assert_tree_all_close(output, on_false)
+    output = tree_util.tree_select(jnp.array(False), on_true, on_false)
+    chex.assert_trees_all_close(output, on_false)
 
   def test_tree_split_leaves(self):
     t = {
@@ -75,13 +75,13 @@ class TreeUtilTest(absltest.TestCase):
     }
 
     for keepdim in (False, True):
-      expd_shapes = jax.tree_map(lambda x: np.zeros(x.shape[1:]), t)
+      expd_shapes = jax.tree.map(lambda x: np.zeros(x.shape[1:]), t)
       if keepdim:
-        expd_shapes = jax.tree_map(lambda x: np.expand_dims(x, 0), expd_shapes)
+        expd_shapes = jax.tree.map(lambda x: np.expand_dims(x, 0), expd_shapes)
 
       res_trees = tree_util.tree_split_leaves(t, axis=0, keepdim=keepdim)
       self.assertLen(res_trees, 3)
-      chex.assert_tree_all_equal_shapes(expd_shapes, *res_trees)
+      chex.assert_trees_all_equal_shapes(expd_shapes, *res_trees)
       for i, res_t in enumerate(res_trees):
         np.testing.assert_allclose(res_t['a0'], 0)
         np.testing.assert_allclose(res_t['d']['a1'], i)

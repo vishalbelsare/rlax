@@ -40,14 +40,10 @@ import jax
 import jax.numpy as jnp
 from rlax._src import base
 
-# This op is not in the list of officially supported ops because the jax team
-# have not fully tested it, but it works nonetheless so we add and use it.
-# TODO(b/160450576): Remove when this op is officially supported.
-jax.interpreters.pxla.multi_host_supported_collectives.add(jax.lax.pmax_p)
-
 Array = chex.Array
 Numeric = chex.Numeric
 Scalar = chex.Scalar
+ProjectionOperatorFn = Callable[[Array], Array]
 
 
 class LagrangePenalty(NamedTuple):
@@ -81,7 +77,7 @@ def mpo_loss(
     sample_q_values: Array,
     temperature_constraint: LagrangePenalty,
     kl_constraints: Sequence[Tuple[Array, LagrangePenalty]],
-    projection_operator: Callable[[Numeric], Numeric] = functools.partial(
+    projection_operator: ProjectionOperatorFn = functools.partial(
         jnp.clip, a_min=_EPSILON),
     policy_loss_weight: float = 1.0,
     temperature_loss_weight: float = 1.0,
@@ -182,7 +178,7 @@ def mpo_loss(
 def mpo_compute_weights_and_temperature_loss(
     sample_q_values: Array,
     temperature_constraint: LagrangePenalty,
-    projection_operator: Callable[[Numeric], Numeric],
+    projection_operator: ProjectionOperatorFn,
     sample_axis: int = 0,
 ) -> Tuple[Array, Array, Scalar]:
   """Computes the weights and temperature loss for MPO.
@@ -249,7 +245,7 @@ def mpo_compute_weights_and_temperature_loss(
 
 def compute_parametric_kl_penalty_and_dual_loss(
     kl_constraints: Sequence[Tuple[Array, LagrangePenalty]],
-    projection_operator: Callable[[Numeric], Numeric],
+    projection_operator: ProjectionOperatorFn,
     use_stop_gradient: bool = True,
 ) -> Tuple[Array, Array]:
   """Optimize hard KL constraints between the current and previous policies."""
@@ -272,7 +268,7 @@ def vmpo_loss(
     advantages: Array,
     temperature_constraint: LagrangePenalty,
     kl_constraints: Sequence[Tuple[Array, LagrangePenalty]],
-    projection_operator: Callable[[Numeric], Numeric] = functools.partial(
+    projection_operator: ProjectionOperatorFn = functools.partial(
         jnp.clip, a_min=_EPSILON),
     restarting_weights: Optional[Array] = None,
     importance_weights: Optional[Array] = None,
@@ -384,7 +380,7 @@ def get_top_k_weights(
     scaled_advantages: Array,
     axis_name: Optional[str] = None,
     use_stop_gradient: bool = True,
-):
+) -> Array:
   """Get the weights for the top top_k_fraction of advantages.
 
   Args:
@@ -443,11 +439,11 @@ def vmpo_compute_weights_and_temperature_loss(
     restarting_weights: Array,
     importance_weights: Array,
     temperature_constraint: LagrangePenalty,
-    projection_operator: Callable[[Numeric], Numeric],
+    projection_operator: ProjectionOperatorFn,
     top_k_fraction: float,
     axis_name: Optional[str] = None,
     use_stop_gradient: bool = True,
-) -> Tuple[Scalar, Array, Scalar]:
+) -> Tuple[Array, Array, Array]:
   """Computes the weights and temperature loss for V-MPO.
 
   Args:
@@ -525,7 +521,7 @@ def vmpo_compute_weights_and_temperature_loss(
 def kl_constraint_loss(
     kl: Array,
     penalty: LagrangePenalty,
-    projection_operator: Callable[[Numeric], Numeric],
+    projection_operator: ProjectionOperatorFn,
     use_stop_gradient: bool = True,
 ) -> Tuple[Array, Array, Array]:
   """Implements a hard KL constraint.
@@ -559,7 +555,7 @@ def kl_constraint_loss(
 
   alpha = projection_operator(penalty.alpha)
   alpha_constant = jax.lax.select(
-      use_stop_gradient, jax.lax.stop_gradient(penalty.alpha), penalty.alpha)
+      use_stop_gradient, jax.lax.stop_gradient(alpha), alpha)
 
   # First step: Optimize w.r.t. alphas
   alpha_loss = alpha * (
@@ -619,4 +615,3 @@ def kl_alpha_loss(
     kl_loss = jnp.asarray(0.0)
     alpha_loss = jnp.asarray(0.0)
   return kl_loss, alpha_loss
-
